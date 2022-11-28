@@ -719,7 +719,9 @@ class BlhostHid(BlhostBase):
         self._thread.start()
 
     def _send_implementation(self, data: list):
-        self._hid_device.write(data)
+        ddata = list(map(int, data))
+        print(ddata)
+        self._hid_device.write(bytes(ddata))
 
     def shutdown(self, timeout=1.0):
         self._shutdown_thread.set()
@@ -727,12 +729,12 @@ class BlhostHid(BlhostBase):
         self._hid_device.close()
 
     @staticmethod
-    def _serial_read_thread(ser: serial.Serial, shutdown_event: threading.Event, logger,
+    def _serial_read_thread(hid: hid.Device, shutdown_event: threading.Event, logger,
                             callback_func: Callable[[bytearray], None]):
         try:
             parser = BlhostDataParser(logger)
-            while not shutdown_event.is_set() and ser.is_open:
-                data = ser.read()
+            while not shutdown_event.is_set():
+                data = hid.read(64)
                 if data:
                     data = parser(bytearray(data))
                     if data is not None:
@@ -744,7 +746,7 @@ class BlhostHid(BlhostBase):
 def cli():
     parser = argparse.ArgumentParser(add_help=False, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('hw_interface', help='Communicate with the target via either CAN or serial',
-                        choices=['can', 'serial'])
+                        choices=['can', 'serial', 'hid'])
     parser.add_argument('command', help='upload: write BINARY to START_ADDRESS. Before writing it will erase the '
                                         'memory from START_ADDRESS to START_ADDRESS + BYTE_COUNT\n'
                                         'read: read memory from START_ADDRESS to START_ADDRESS + BYTE_COUNT. '
@@ -791,6 +793,11 @@ def cli():
         BlHostImpl = BlhostCan  # type: Type[BlhostBase]
         args, kwargs = [int(parsed_args.tx_id, base=16), int(parsed_args.rx_id, base=16)], \
             {'interface': parsed_args.interface, 'channel': parsed_args.channel, 'bitrate': parsed_args.baudrate}
+    elif parsed_args.hw_interface == 'hid':
+        if parsed_args.vid is None or parsed_args.pid is None:
+            parser.print_help()
+            exit(1)
+        BlHostImpl = BlhostHid
     else:
         if parsed_args.port is None or parsed_args.baudrate is None:
             parser.print_help()
