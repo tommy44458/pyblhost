@@ -19,6 +19,12 @@ Currently serial and CAN-Bus interfaces are supported.
 pip install pyblhost
 ```
 
+### Hid
+
+```
+sudo apt-get install libhidapi-hidraw0
+```
+
 ## Usage
 
 ### Python
