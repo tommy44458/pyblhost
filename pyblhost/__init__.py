@@ -24,6 +24,6 @@
 
 __version__ = '1.1.1'
 
-__all__ = ['BlhostCan', 'BlhostSerial']
+__all__ = ['BlhostCan', 'BlhostSerial', 'BlhostHid']
 
-from .pyblhost import BlhostCan, BlhostSerial
+from .pyblhost import BlhostCan, BlhostHid, BlhostSerial

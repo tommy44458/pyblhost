@@ -27,9 +27,10 @@ import logging
 import struct
 import threading
 from enum import IntEnum
-from typing import Callable, Optional, Generator, Union, Type
+from typing import Callable, Generator, Optional, Type, Union
 
 import can
+import hid
 import serial
 from tqdm import tqdm
 
@@ -689,6 +690,41 @@ class BlhostSerial(BlhostBase):
         self._shutdown_thread.set()
         self._thread.join(timeout=timeout)
         self._serial.close()
+
+    @staticmethod
+    def _serial_read_thread(ser: serial.Serial, shutdown_event: threading.Event, logger,
+                            callback_func: Callable[[bytearray], None]):
+        try:
+            parser = BlhostDataParser(logger)
+            while not shutdown_event.is_set() and ser.is_open:
+                data = ser.read()
+                if data:
+                    data = parser(bytearray(data))
+                    if data is not None:
+                        callback_func(data)
+        except Exception:
+            logger.exception('BlhostSerial: Caught exception in "_serial_read_thread"')
+
+class BlhostHid(BlhostBase):
+
+    def __init__(self, vid: int, pid: int, logger):
+        super(BlhostHid, self).__init__(logger)
+
+        # Open the hid port, but read from it in a thread, so we are not blocking the main loop
+        self._hid_device = hid.Device(vid, pid)
+        self._shutdown_thread = threading.Event()
+        self._thread = threading.Thread(target=self._serial_read_thread, name='_serial_read_thread',
+                                        args=(self._hid_device, self._shutdown_thread, self.logger, self._data_callback))
+        self._thread.daemon = False  # Make sure the application joins this before closing down
+        self._thread.start()
+
+    def _send_implementation(self, data: list):
+        self._hid_device.write(data)
+
+    def shutdown(self, timeout=1.0):
+        self._shutdown_thread.set()
+        self._thread.join(timeout=timeout)
+        self._hid_device.close()
 
     @staticmethod
     def _serial_read_thread(ser: serial.Serial, shutdown_event: threading.Event, logger,
