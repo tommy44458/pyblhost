@@ -24,12 +24,11 @@
 
 import logging
 
-from pyblhost import BlhostCan
-
+from pyblhost import BlhostHid
 
 def main():
     # BlhostCan specific arguments
-    tx_id, rx_id = 0x123, 0x321
+    vid, pid = 8137, 33
 
     # Create a logger
     logger = logging.getLogger()
@@ -39,10 +38,10 @@ def main():
     logger.addHandler(stream_handler)
 
     # Specify the binary to upload, the start address to upload it to and the byte count to erase before uploading
-    binary = 'blink.bin'
-    start_address, byte_count = 0x4C000, 0x34000
+    binary = 'BrainDyLPC55s69.bin'
+    start_address, byte_count = 0x0, 0x34000
 
-    with BlhostCan(tx_id, rx_id, logger) as blhost:
+    with BlhostHid(vid, pid, logger) as blhost:
         old_progress = None
         result = False
         for progress in blhost.upload(binary, start_address, byte_count, timeout=1):
